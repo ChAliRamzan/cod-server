@@ -9,18 +9,29 @@ const SHOPIFY_STORE = process.env.SHOPIFY_STORE;
 const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN;
 const PORT = process.env.PORT || 3000;
 
+// Keep alive
+setInterval(function() {
+  fetch('https://velorea-cod.onrender.com/ping').catch(function() {});
+}, 840000);
+
+app.get('/ping', function(req, res) {
+  res.json({ status: 'awake' });
+});
+
 app.post('/cod-order', async (req, res) => {
   try {
     const {
       firstName, lastName, phone,
       address, city, province,
-      variantId, orderSource
+      variantId, orderSource, productTitle
     } = req.body;
+
+    console.log('Received order:', JSON.stringify(req.body));
 
     const orderPayload = {
       order: {
         line_items: [{
-          variant_id: variantId,
+          variant_id: parseInt(variantId),
           quantity: 1
         }],
         customer: {
@@ -56,8 +67,10 @@ app.post('/cod-order', async (req, res) => {
       }
     };
 
+    console.log('Sending to Shopify:', JSON.stringify(orderPayload));
+
     const response = await fetch(
-      `https://${SHOPIFY_STORE}.myshopify.com/admin/api/2024-01/orders.json`,
+      `https://${SHOPIFY_STORE}.myshopify.com/admin/api/2023-10/orders.json`,
       {
         method: 'POST',
         headers: {
@@ -69,18 +82,17 @@ app.post('/cod-order', async (req, res) => {
     );
 
     const data = await response.json();
+    console.log('Shopify response:', JSON.stringify(data));
 
     if (data.order) {
-      res.json({
-        success: true,
-        orderId: data.order.id,
-        orderName: data.order.name
-      });
+      res.json({ success: true, orderId: data.order.id, orderName: data.order.name });
     } else {
+      console.error('Shopify error:', JSON.stringify(data));
       res.status(400).json({ success: false, error: data });
     }
 
   } catch (err) {
+    console.error('Server error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
