@@ -21,7 +21,7 @@ app.get('/ping', function(req, res) {
 app.post('/cod-order', async (req, res) => {
   try {
     const {
-      firstName, lastName, phone,
+      firstName, lastName, email, phone,
       address, city, province,
       variantId, orderSource, productTitle
     } = req.body;
@@ -75,9 +75,9 @@ app.post('/cod-order', async (req, res) => {
         },
         financial_status: 'pending',
         tags: orderSource === 'whatsapp' ? 'COD-WHATSAPP' : 'COD',
-        note: orderSource === 'whatsapp'
+        note: (orderSource === 'whatsapp'
           ? 'Cash on Delivery order placed via WhatsApp'
-          : 'Cash on Delivery order placed via website',
+          : 'Cash on Delivery order placed via website') + (email ? ' | Email: ' + email : ''),
         send_receipt: false,
         send_fulfillment_receipt: false
       }
@@ -90,7 +90,8 @@ app.post('/cod-order', async (req, res) => {
       orderPayload.order.customer = {
         first_name: firstName,
         last_name: lastName,
-        phone: phone
+        phone: phone,
+        email: email || (phone + '@veloreacare.com')
       };
     }
 
