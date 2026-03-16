@@ -28,17 +28,33 @@ app.post('/cod-order', async (req, res) => {
 
     console.log('Received order:', JSON.stringify(req.body));
 
+    // Step 1: Check if customer exists by phone
+    let customerId = null;
+    try {
+      const searchRes = await fetch(
+        `https://${SHOPIFY_STORE}.myshopify.com/admin/api/2023-10/customers/search.json?query=phone:${encodeURIComponent(phone)}&limit=1`,
+        {
+          headers: {
+            'X-Shopify-Access-Token': SHOPIFY_TOKEN
+          }
+        }
+      );
+      const searchData = await searchRes.json();
+      if (searchData.customers && searchData.customers.length > 0) {
+        customerId = searchData.customers[0].id;
+        console.log('Found existing customer:', customerId);
+      }
+    } catch(e) {
+      console.log('Customer search error (non-fatal):', e.message);
+    }
+
+    // Step 2: Build order payload
     const orderPayload = {
       order: {
         line_items: [{
           variant_id: parseInt(variantId),
           quantity: 1
         }],
-        customer: {
-          first_name: firstName,
-          last_name: lastName,
-          phone: phone
-        },
         billing_address: {
           first_name: firstName,
           last_name: lastName,
@@ -66,6 +82,17 @@ app.post('/cod-order', async (req, res) => {
         send_fulfillment_receipt: false
       }
     };
+
+    // Attach existing customer or create new one
+    if (customerId) {
+      orderPayload.order.customer = { id: customerId };
+    } else {
+      orderPayload.order.customer = {
+        first_name: firstName,
+        last_name: lastName,
+        phone: phone
+      };
+    }
 
     console.log('Sending to Shopify:', JSON.stringify(orderPayload));
 
