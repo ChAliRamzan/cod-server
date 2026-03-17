@@ -9,7 +9,6 @@ const SHOPIFY_STORE = process.env.SHOPIFY_STORE;
 const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN;
 const PORT = process.env.PORT || 3000;
 
-// Keep alive
 setInterval(function() {
   fetch('https://velorea-cod.onrender.com/ping').catch(function() {});
 }, 840000);
@@ -28,16 +27,11 @@ app.post('/cod-order', async (req, res) => {
 
     console.log('Received order:', JSON.stringify(req.body));
 
-    // Step 1: Check if customer exists by phone
     let customerId = null;
     try {
       const searchRes = await fetch(
         `https://${SHOPIFY_STORE}.myshopify.com/admin/api/2023-10/customers/search.json?query=phone:${encodeURIComponent(phone)}&limit=1`,
-        {
-          headers: {
-            'X-Shopify-Access-Token': SHOPIFY_TOKEN
-          }
-        }
+        { headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN } }
       );
       const searchData = await searchRes.json();
       if (searchData.customers && searchData.customers.length > 0) {
@@ -48,7 +42,6 @@ app.post('/cod-order', async (req, res) => {
       console.log('Customer search error (non-fatal):', e.message);
     }
 
-    // Step 2: Build order payload
     const orderPayload = {
       order: {
         line_items: [{
@@ -83,7 +76,6 @@ app.post('/cod-order', async (req, res) => {
       }
     };
 
-    // Attach existing customer or create new one
     if (customerId) {
       orderPayload.order.customer = { id: customerId };
     } else {
