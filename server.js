@@ -9,7 +9,6 @@ const SHOPIFY_STORE = process.env.SHOPIFY_STORE;
 const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN;
 const PORT = process.env.PORT || 3000;
 
-// Keep alive ping every 14 minutes
 setInterval(function() {
   fetch('https://velorea-cod.onrender.com/ping').catch(function() {});
 }, 840000);
@@ -18,7 +17,6 @@ app.get('/ping', function(req, res) {
   res.json({ status: 'awake', time: new Date().toISOString() });
 });
 
-// Test endpoint to verify env vars are set
 app.get('/check', function(req, res) {
   res.json({
     store: SHOPIFY_STORE ? SHOPIFY_STORE : 'NOT SET',
@@ -37,23 +35,7 @@ app.post('/cod-order', async (req, res) => {
 
     console.log('Received order:', JSON.stringify(req.body));
 
-    // Step 1: Check if customer exists by phone
-    let customerId = null;
-    try {
-      const searchRes = await fetch(
-        `https://${SHOPIFY_STORE}.myshopify.com/admin/api/2023-10/customers/search.json?query=phone:${encodeURIComponent(phone)}&limit=1`,
-        { headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN } }
-      );
-      const searchData = await searchRes.json();
-      if (searchData.customers && searchData.customers.length > 0) {
-        customerId = searchData.customers[0].id;
-        console.log('Found existing customer:', customerId);
-      }
-    } catch(e) {
-      console.log('Customer search error (non-fatal):', e.message);
-    }
-
-    // Step 2: Build order payload
+    // Guest order - no customer object to avoid duplicate conflicts
     const orderPayload = {
       order: {
         line_items: [{
@@ -78,27 +60,16 @@ app.post('/cod-order', async (req, res) => {
           province: province || '',
           country: 'PK'
         },
+        email: email || (phone + '@veloreacare.com'),
         financial_status: 'pending',
         tags: orderSource === 'whatsapp' ? 'COD-WHATSAPP' : 'COD',
         note: (orderSource === 'whatsapp'
-          ? 'Cash on Delivery order placed via WhatsApp'
-          : 'Cash on Delivery order placed via website') + (email ? ' | Email: ' + email : ''),
+          ? 'COD via WhatsApp'
+          : 'COD via website') + (email ? ' | Email: ' + email : '') + ' | Phone: ' + phone,
         send_receipt: false,
         send_fulfillment_receipt: false
       }
     };
-
-    // Attach existing customer or create new one
-    if (customerId) {
-      orderPayload.order.customer = { id: customerId };
-    } else {
-      orderPayload.order.customer = {
-        first_name: firstName,
-        last_name: lastName,
-        phone: phone,
-        email: email || (phone + '@veloreacare.com')
-      };
-    }
 
     console.log('Sending to Shopify:', JSON.stringify(orderPayload));
 
